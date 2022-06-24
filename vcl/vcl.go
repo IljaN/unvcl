@@ -35,30 +35,30 @@ type Sound struct {
 func ParseFile(r io.ReadSeeker) (*File, error) {
 	vcl := &File{}
 
-	offsetReader, err := readOffset(r, OffsetTableStart, OffsetTableEnd-OffsetTableStart)
+	offsetTable, err := readOffset(r, OffsetTableStart, OffsetTableEnd-OffsetTableStart)
 	if err != nil {
 		return nil, err
 	}
-	lengthReader, err := readOffset(r, LengthTableStart, LengthTableEnd-LengthTableStart)
+	lengthTable, err := readOffset(r, LengthTableStart, LengthTableEnd-LengthTableStart)
 	if err != nil {
 		return nil, err
 	}
-	freqReader, err := readOffset(r, FreqTableStart, FreqTableEnd-FreqTableStart)
+	freqTable, err := readOffset(r, FreqTableStart, FreqTableEnd-FreqTableStart)
 	if err != nil {
 		return nil, err
 	}
 
 	for i := 0; i < NumSound; i++ {
 		s := Sound{}
-		if err = binary.Read(offsetReader, binary.LittleEndian, &s.Offset); err != nil {
+		if err = binary.Read(offsetTable, binary.LittleEndian, &s.Offset); err != nil {
 			return nil, err
 		}
 
-		if err = binary.Read(lengthReader, binary.LittleEndian, &s.Len); err != nil {
+		if err = binary.Read(lengthTable, binary.LittleEndian, &s.Len); err != nil {
 			return nil, err
 		}
 
-		if err = binary.Read(freqReader, binary.LittleEndian, &s.Freq); err != nil {
+		if err = binary.Read(freqTable, binary.LittleEndian, &s.Freq); err != nil {
 			return nil, err
 		}
 
