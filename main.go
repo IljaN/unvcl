@@ -4,80 +4,62 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"github.com/IljaN/unvcl/vcl"
 	"github.com/go-audio/audio"
 	"github.com/go-audio/wav"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
+	"path"
+	"path/filepath"
 )
 
-//  ffplay -f s8 -ar 6400 28.wav
 func main() {
+	vclPath, extractPath := readArgsOrDie()
 
-	file, err := ioutil.ReadFile("jill1.vcl")
+	file, err := os.Open(vclPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	offsetTable := file[0:200]
-	lengthTable := file[200:300]
-	freqTable := file[300:400]
+	defer file.Close()
 
-	var (
-		u32min = 0
-		u32max = 4
-		u16min = 0
-		u16max = 2
-	)
-
-	var offsets = make([]uint32, 50)
-	var lengths = make([]uint16, 50)
-	var freqs = make([]uint16, 50)
-
-	for i := range offsets {
-		offsets[i] = binary.LittleEndian.Uint32(offsetTable[u32min:u32max])
-		lengths[i] = binary.LittleEndian.Uint16(lengthTable[u16min:u16max])
-		freqs[i] = binary.LittleEndian.Uint16(freqTable[u16min:u16max])
-
-		if lengths[i] != 0 {
-
-			snd := file[offsets[i]:(offsets[i] + uint32(lengths[i]))]
-
-			// Output file.
-			out, err := os.Create(fmt.Sprintf("%d.wav", i))
-			if err != nil {
-				log.Fatal(err)
-			}
-			defer out.Close()
-
-			e := wav.NewEncoder(out, 6000, 8, 1, 1)
-
-			// Create new audio.IntBuffer.
-			audioBuf, err := newAudioIntBuffer(bytes.NewReader(snd))
-			if err != nil {
-				log.Fatal(err)
-			}
-			// Write buffer to output file. This writes a RIFF header and the PCM chunks from the audio.IntBuffer.
-			if err := e.Write(audioBuf); err != nil {
-				log.Fatal(err)
-			}
-			if err := e.Close(); err != nil {
-				log.Fatal(err)
-			}
-
-			out.Close()
-		}
-
-		if u32max == 200 {
-			break
-		}
-		u32min = u32min + 4
-		u32max = u32max + 4
-		u16min = u16min + 2
-		u16max = u16max + 2
-
+	parsed, err := vcl.ParseFile(file)
+	if err != nil {
+		log.Fatal(err)
 	}
+
+	for i := range parsed.SoundTable {
+		outPath := path.Join(extractPath, fmt.Sprintf("%s_%d.wav", fileNameWithoutExt(vclPath), i))
+		if err = WriteWav(outPath, parsed.SoundTable[i].Samples); err != nil {
+			log.Fatal(err)
+		}
+	}
+}
+
+func WriteWav(fileName string, samples []byte) error {
+	out, err := os.Create(fileName)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	e := wav.NewEncoder(out, 6000, 8, 1, 1)
+
+	// Create new audio.IntBuffer.
+	audioBuf, err := newAudioIntBuffer(bytes.NewReader(samples))
+	if err != nil {
+		return err
+	}
+	// Write buffer to output file. This writes a RIFF header and the PCM chunks from the audio.IntBuffer.
+	if err = e.Write(audioBuf); err != nil {
+		return err
+	}
+	if err = e.Close(); err != nil {
+		return err
+	}
+
+	return nil
 
 }
 
@@ -99,4 +81,38 @@ func newAudioIntBuffer(r io.Reader) (*audio.IntBuffer, error) {
 		}
 		buf.Data = append(buf.Data, int(sample))
 	}
+}
+
+func pathExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
+}
+
+func fileNameWithoutExt(fn string) string {
+	fn = filepath.Base(fn)
+	ext := filepath.Ext(fn)
+	return fn[0 : len(fn)-len(ext)]
+}
+
+func readArgsOrDie() (vclPath, extractPath string) {
+	if len(os.Args) < 3 {
+		log.Fatal("unvcl VCL_FILE OUTPATH")
+	}
+
+	vclPath = os.Args[1]
+	extractPath = os.Args[2]
+
+	exists, _ := pathExists(extractPath)
+	if !exists {
+		fmt.Printf("Path %s does not exist", extractPath)
+		os.Exit(1)
+	}
+
+	return vclPath, extractPath
 }
