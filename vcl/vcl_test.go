@@ -1,28 +1,37 @@
 package vcl
 
 import (
+	"bufio"
 	"bytes"
+	"encoding/binary"
 	"github.com/stretchr/testify/assert"
-	"io/ioutil"
 	"testing"
 )
 
-func TestReadOffset(t *testing.T) {
+func TestParseTable(t *testing.T) {
+	expected := []uint16{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+	var gotBytes []byte
 
-	testBytes := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-	testReader := bytes.NewReader(testBytes)
+	var b bytes.Buffer
+	w := bufio.NewWriter(&b)
 
-	rd, err := readOffset(testReader, 5, 5)
+	for i := range expected {
+		_ = binary.Write(w, binary.LittleEndian, expected[i])
+		_ = w.Flush()
+		buf := []byte{0, 0}
+		b.Read(buf)
+		b.Reset()
+		gotBytes = append(gotBytes, buf...)
+
+	}
+
+	r := bytes.NewReader(gotBytes)
+
+	got, err := parseTable[uint16](r, 0, 100)
+
 	assert.NoError(t, err)
-	got, _ := ioutil.ReadAll(rd)
-
-	assert.Len(t, got, 5)
-	assert.Equal(t, testBytes[5:10], got)
-
-	rd, err = readOffset(testReader, 0, 10)
+	exp, err := got.All()
 	assert.NoError(t, err)
-	got, _ = ioutil.ReadAll(rd)
+	assert.Equal(t, expected, exp)
 
-	assert.Len(t, got, 10)
-	assert.Equal(t, testBytes[0:10], got)
 }
