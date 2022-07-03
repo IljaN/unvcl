@@ -29,9 +29,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-	for i := range parsed.SoundTable {
+	for i := range parsed.Sounds {
 		outPath := path.Join(extractPath, fmt.Sprintf("%s_%d.wav", fileNameWithoutExt(vclPath), i))
-		if err = WriteWav(outPath, parsed.SoundTable[i].Samples); err != nil {
+		if err = WriteWav(outPath, parsed.Sounds[i].Samples); err != nil {
 			log.Fatal(err)
 		}
 	}

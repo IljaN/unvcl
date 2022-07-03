@@ -15,12 +15,12 @@ const (
 	FreqTableEnd     = 400
 )
 
-// NumSound is the max. number of sounds supported by a single file
-const NumSound = 50
+// NumSounds is the max. number of sounds supported by the file-format for a single file
+const NumSounds = 50
 
-// File is a parsed VCL file. It contains a SoundTable with all sounds.
+// File is a parsed VCL file. It holds Sounds when parsed.
 type File struct {
-	SoundTable []Sound
+	Sounds []Sound
 }
 
 // Sound is a parsed sound block in the vcl.File. Samples is PCM 8-Bit unsigned.
@@ -40,16 +40,16 @@ func ParseFile(r io.ReadSeeker) (*File, error) {
 		return nil, err
 	}
 
-	for i := 0; i < NumSound; i++ {
-		offs, err := tables.offsets.Next()
+	for i := 0; i < NumSounds; i++ {
+		offs, err := tables.soundOffsets.Next()
 		if err != nil {
 			return nil, err
 		}
-		length, err := tables.lengths.Next()
+		length, err := tables.soundLengths.Next()
 		if err != nil {
 			return nil, err
 		}
-		freq, err := tables.freqs.Next()
+		freq, err := tables.soundFrequencies.Next()
 		if err != nil {
 			return nil, err
 		}
@@ -68,7 +68,7 @@ func ParseFile(r io.ReadSeeker) (*File, error) {
 			}
 
 			s.Samples = pcm
-			vcl.SoundTable = append(vcl.SoundTable, s)
+			vcl.Sounds = append(vcl.Sounds, s)
 		}
 	}
 
@@ -78,11 +78,11 @@ func ParseFile(r io.ReadSeeker) (*File, error) {
 // headerTables bundles the sound-specific lookup-tables of the format
 type headerTables struct {
 	// 000-200 OffsetTable: 50x uint32, marks the offset of every sound-file. Offset values are absolute to the file.
-	offsets *table[uint32]
+	soundOffsets *table[uint32]
 	// 200-300 LengthTable: 50x uint16, denotes the length of the sound in uint8 relative to offset
-	lengths *table[uint16]
+	soundLengths *table[uint16]
 	// 300-400 FreqTable: 50x uint16, the sampling frequency at which the sample should be played  (not implemented)
-	freqs *table[uint16]
+	soundFrequencies *table[uint16]
 }
 
 // parseTables parses the headerTables which are required to lookup the sound files
@@ -93,19 +93,19 @@ func parseTables(r io.ReadSeeker) (*headerTables, error) {
 	if err != nil {
 		return nil, err
 	}
-	tables.offsets = offs
+	tables.soundOffsets = offs
 
 	lengths, err := parseTable[uint16](r, LengthTableStart, LengthTableEnd-LengthTableStart)
 	if err != nil {
 		return nil, err
 	}
-	tables.lengths = lengths
+	tables.soundLengths = lengths
 
 	freqs, err := parseTable[uint16](r, FreqTableStart, FreqTableEnd-FreqTableStart)
 	if err != nil {
 		return nil, err
 	}
-	tables.freqs = freqs
+	tables.soundFrequencies = freqs
 
 	return tables, nil
 }
@@ -137,7 +137,7 @@ func (tb *table[T]) Next() (T, error) {
 	return x, err
 }
 
-// All seeks to the beginning and parses all values
+// All seeks to the beginning and parses all values from the table
 func (tb *table[T]) All() ([]T, error) {
 	_, err := tb.r.Seek(0, 0)
 	if err != nil {
@@ -160,11 +160,12 @@ func (tb *table[T]) All() ([]T, error) {
 
 // read seeks to offset and reads len
 func read(r io.ReadSeeker, offset uint32, len uint16) ([]byte, error) {
+	var data = make([]byte, len)
 	var err error
+
 	if _, err = r.Seek(int64(offset), 0); err != nil {
 		return nil, err
 	}
-	data := make([]byte, len)
 	if _, err = r.Read(data); err != nil {
 		return nil, err
 	}

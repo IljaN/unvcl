@@ -47,22 +47,22 @@ func TestParseTables(t *testing.T) {
 	ht, err := parseTables(r)
 	assert.NoError(t, err)
 
-	assert.Len(t, ht.offsets.data, 200)
+	assert.Len(t, ht.soundOffsets.data, 200)
 
-	for i := range ht.offsets.data {
-		assert.Equal(t, uint8(1), ht.offsets.data[i])
+	for i := range ht.soundOffsets.data {
+		assert.Equal(t, uint8(1), ht.soundOffsets.data[i])
 	}
 
-	assert.Len(t, ht.lengths.data, 100)
+	assert.Len(t, ht.soundLengths.data, 100)
 
-	for i := range ht.lengths.data {
-		assert.Equal(t, uint8(2), ht.lengths.data[i])
+	for i := range ht.soundLengths.data {
+		assert.Equal(t, uint8(2), ht.soundLengths.data[i])
 	}
 
-	assert.Len(t, ht.freqs.data, 100)
+	assert.Len(t, ht.soundFrequencies.data, 100)
 
-	for i := range ht.freqs.data {
-		assert.Equal(t, uint8(3), ht.freqs.data[i])
+	for i := range ht.soundFrequencies.data {
+		assert.Equal(t, uint8(3), ht.soundFrequencies.data[i])
 	}
 }
 
