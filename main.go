@@ -102,7 +102,8 @@ func fileNameWithoutExt(fn string) string {
 
 func readArgsOrDie() (vclPath, extractPath string) {
 	if len(os.Args) < 3 {
-		log.Fatal("unvcl VCL_FILE OUTPATH")
+		fmt.Println("usage: unvcl vcl_file out_path")
+		os.Exit(0)
 	}
 
 	vclPath = os.Args[1]
