@@ -2,12 +2,9 @@ package main
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
+	"github.com/IljaN/unvcl/internal/encoder"
 	"github.com/IljaN/unvcl/vcl"
-	"github.com/go-audio/audio"
-	"github.com/go-audio/wav"
-	"io"
 	"log"
 	"os"
 	"path"
@@ -33,55 +30,16 @@ func main() {
 		outPath := path.Join(extractPath, fmt.Sprintf("%s_%d.wav", fileNameWithoutExt(vclPath), i))
 		pcmSamples, _ := vcl.ReadPCM(s, vclFile)
 
-		if err = WriteWav(outPath, bytes.NewBuffer(pcmSamples)); err != nil {
+		outFile, err := os.Create(outPath)
+		if err != nil {
 			log.Fatal(err)
 		}
-	}
-}
 
-func WriteWav(fileName string, samples io.Reader) error {
-	out, err := os.Create(fileName)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	e := wav.NewEncoder(out, 6000, 8, 1, 1)
-
-	// Create new audio.IntBuffer.
-	audioBuf, err := newAudioIntBuffer(samples)
-	if err != nil {
-		return err
-	}
-	// Write buffer to output file. This writes a RIFF header and the PCM chunks from the audio.IntBuffer.
-	if err = e.Write(audioBuf); err != nil {
-		return err
-	}
-	if err = e.Close(); err != nil {
-		return err
-	}
-
-	return nil
-
-}
-
-func newAudioIntBuffer(r io.Reader) (*audio.IntBuffer, error) {
-	buf := audio.IntBuffer{
-		Format: &audio.Format{
-			NumChannels: 1,
-			SampleRate:  6000,
-		},
-	}
-	for {
-		var sample uint8
-		err := binary.Read(r, binary.LittleEndian, &sample)
-		switch {
-		case err == io.EOF:
-			return &buf, nil
-		case err != nil:
-			return nil, err
+		if err = encoder.WriteWav(outFile, bytes.NewBuffer(pcmSamples), int(s.Freq)); err != nil {
+			log.Fatal(err)
 		}
-		buf.Data = append(buf.Data, int(sample))
+
+		outFile.Close()
 	}
 }
 
