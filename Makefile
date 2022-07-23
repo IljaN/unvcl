@@ -4,19 +4,19 @@ LDFLAGS = -ldflags "-X main.Version=${VERSION}"
 build:
 	CGO_ENABLED=0 go build ${LDFLAGS} .
 
-build_all: bin/unvcl-amd64-linux bin/unvcl-amd64-darwin bin/unvcl-amd64-windows.exe bin/unvcl-arm64-darwin
+build_all: build/unvcl-amd64-linux build/unvcl-amd64-darwin build/unvcl-amd64-windows.exe build/unvcl-arm64-darwin
 
-bin/unvcl-amd64-linux:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ${LDFLAGS} -o bin/unvcl-amd64-linux main.go
+build/unvcl-amd64-linux:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ${LDFLAGS} -o build/unvcl-amd64-linux-${VERSION} main.go
 
-bin/unvcl-amd64-darwin:
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build ${LDFLAGS} -o bin/unvcl-amd64-darwin main.go
+build/unvcl-amd64-darwin:
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build ${LDFLAGS} -o build/unvcl-amd64-darwin-${VERSION} main.go
 
-bin/unvcl-amd64-windows.exe:
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build ${LDFLAGS} -o bin/unvcl-amd64-windows.exe main.go
+build/unvcl-amd64-windows.exe:
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build ${LDFLAGS} -o build/unvcl-amd64-windows-${VERSION}.exe main.go
 
-bin/unvcl-arm64-darwin:
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build ${LDFLAGS} -o bin/unvcl-arm64-darwin main.go
+build/unvcl-arm64-darwin:
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build ${LDFLAGS} -o build/unvcl-arm64-darwin-${VERSION} main.go
 
 .PHONY: test
 test:
@@ -32,4 +32,4 @@ show-coverage: coverage
 
 .PHONY: clean
 clean:
-	rm -rf ./bin unvcl cover.out
+	rm -rf ./build unvcl cover.out
