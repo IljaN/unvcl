@@ -28,7 +28,10 @@ func main() {
 
 	for i, s := range vcl.ListSounds(vclFile) {
 		outPath := path.Join(extractPath, fmt.Sprintf("%s_%d.wav", fileNameWithoutExt(vclPath), i))
-		pcmSamples, _ := vcl.ReadPCM(s, vclFile)
+		pcmSamples, err := vcl.ReadPCM(s, vclFile)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		outFile, err := os.Create(outPath)
 		if err != nil {
