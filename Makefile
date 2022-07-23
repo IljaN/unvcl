@@ -4,7 +4,7 @@ LDFLAGS = -ldflags "-X main.Version=${VERSION}"
 build:
 	CGO_ENABLED=0 go build ${LDFLAGS} .
 
-build_all: bin/unvcl-amd64-linux bin/unvcl-amd64-darwin bin/unvcl-amd64-windows.exe
+build_all: bin/unvcl-amd64-linux bin/unvcl-amd64-darwin bin/unvcl-amd64-windows.exe bin/unvcl-arm64-darwin
 
 bin/unvcl-amd64-linux:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ${LDFLAGS} -o bin/unvcl-amd64-linux main.go
@@ -14,6 +14,9 @@ bin/unvcl-amd64-darwin:
 
 bin/unvcl-amd64-windows.exe:
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build ${LDFLAGS} -o bin/unvcl-amd64-windows.exe main.go
+
+bin/unvcl-arm64-darwin:
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build ${LDFLAGS} -o bin/unvcl-arm64-darwin main.go
 
 .PHONY: test
 test:
