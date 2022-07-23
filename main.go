@@ -24,20 +24,22 @@ func main() {
 
 	defer file.Close()
 
-	parsed, err := vcl.ParseFile(file)
+	vclFile, err := vcl.Open(file)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	for i := range parsed.Sounds {
+	for i, s := range vcl.ListSounds(vclFile) {
 		outPath := path.Join(extractPath, fmt.Sprintf("%s_%d.wav", fileNameWithoutExt(vclPath), i))
-		if err = WriteWav(outPath, parsed.Sounds[i].Samples); err != nil {
+		pcmSamples, _ := vcl.ReadPCM(s, vclFile)
+
+		if err = WriteWav(outPath, bytes.NewBuffer(pcmSamples)); err != nil {
 			log.Fatal(err)
 		}
 	}
 }
 
-func WriteWav(fileName string, samples []byte) error {
+func WriteWav(fileName string, samples io.Reader) error {
 	out, err := os.Create(fileName)
 	if err != nil {
 		return err
@@ -47,7 +49,7 @@ func WriteWav(fileName string, samples []byte) error {
 	e := wav.NewEncoder(out, 6000, 8, 1, 1)
 
 	// Create new audio.IntBuffer.
-	audioBuf, err := newAudioIntBuffer(bytes.NewReader(samples))
+	audioBuf, err := newAudioIntBuffer(samples)
 	if err != nil {
 		return err
 	}

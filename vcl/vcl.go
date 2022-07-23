@@ -1,174 +1,90 @@
+// Package vcl provides apis to extract audio-samples from VCL-Files. VCL is a file-format which is mainly used by some early DOS
+// games developed by Epic MegaGames.
 package vcl
 
 import (
-	"bytes"
 	"encoding/binary"
 	"io"
 )
 
-const (
-	OffsetTableStart = 0
-	OffsetTableEnd   = 200
-	LengthTableStart = 200
-	LengthTableEnd   = 300
-	FreqTableStart   = 300
-	FreqTableEnd     = 400
-)
-
-// NumSounds is the max. number of sounds supported by the file-format for a single file
-const NumSounds = 50
-
-// File is a parsed VCL file. It holds Sounds when parsed.
+// File represents a VCL File
+//
+// The text portion of the format is currently not implemented.
 type File struct {
-	Sounds []Sound
+	headers
+	r io.ReadSeeker
 }
 
-// Sound is a parsed sound block in the vcl.File. Samples is PCM 8-Bit unsigned.
-type Sound struct {
-	Offset  uint32
-	Len     uint16
-	Freq    uint16
-	Samples []byte
+// The format consists of five tables: Sound Offsets table, Sound Lengths table, Sound Frequencies table, Text Offset table, and Text Length table.
+// The order of occurrence is important; the game uses indexes to this table to determine which sound to play or what text to show. The sounds
+// are stored in raw format without headers.
+type headers struct {
+	Sound struct {
+		// OffsetTable: 50x uint32, marks the offset of every sound-file. Offset values are absolute to the file.
+		Offsets [50]uint32
+		// LengthTable: 50x uint16, denotes the length of the sound in uint8 relative to offset
+		Lengths [50]uint16
+		// FreqTable: 50x uint16, the sampling frequency at which the sample should be played  (not implemented)
+		Frequencies [50]uint16
+	}
 }
 
-// ParseFile parses a VCL file and loads all sounds in to memory. See File
-func ParseFile(r io.ReadSeeker) (*File, error) {
-	vcl := &File{}
+// Open a VCL file for data extraction
+func Open(vcl io.ReadSeeker) (*File, error) {
+	f := &File{
+		headers: headers{},
+		r:       vcl,
+	}
 
-	tables, err := parseTables(r)
+	_, err := f.r.Seek(0, io.SeekStart)
 	if err != nil {
 		return nil, err
 	}
 
-	for i := 0; i < NumSounds; i++ {
-		offs, err := tables.soundOffsets.Next()
-		if err != nil {
-			return nil, err
-		}
-		length, err := tables.soundLengths.Next()
-		if err != nil {
-			return nil, err
-		}
-		freq, err := tables.soundFrequencies.Next()
-		if err != nil {
-			return nil, err
+	if err = binary.Read(f.r, binary.LittleEndian, &f.headers); err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+// SoundInfo holds the parameters of a single sound-file inside the vcl file.
+type SoundInfo struct {
+	Offset uint32
+	Len    uint16
+	Freq   uint16
+}
+
+// ListSounds returns a list of sounds stored in File
+func ListSounds(f *File) []SoundInfo {
+	list := make([]SoundInfo, 0)
+	sh := f.headers.Sound
+	for i := range sh.Offsets {
+		offs, length, freq := sh.Offsets[i], sh.Lengths[i], sh.Frequencies[i]
+		if length == 0 {
+			continue
 		}
 
-		s := Sound{
+		list = append(list, SoundInfo{
 			Offset: offs,
 			Len:    length,
 			Freq:   freq,
-		}
-
-		if s.Len != 0 {
-			// read audio samples
-			pcm, err := read(r, s.Offset, s.Len)
-			if err != nil {
-				return nil, err
-			}
-
-			s.Samples = pcm
-			vcl.Sounds = append(vcl.Sounds, s)
-		}
+		})
 	}
 
-	return vcl, nil
+	return list
 }
 
-// headerTables bundles the sound-specific lookup-tables of the format
-type headerTables struct {
-	// 000-200 OffsetTable: 50x uint32, marks the offset of every sound-file. Offset values are absolute to the file.
-	soundOffsets *table[uint32]
-	// 200-300 LengthTable: 50x uint16, denotes the length of the sound in uint8 relative to offset
-	soundLengths *table[uint16]
-	// 300-400 FreqTable: 50x uint16, the sampling frequency at which the sample should be played  (not implemented)
-	soundFrequencies *table[uint16]
-}
-
-// parseTables parses the headerTables which are required to lookup the sound files
-func parseTables(r io.ReadSeeker) (*headerTables, error) {
-	tables := &headerTables{}
-
-	offs, err := parseTable[uint32](r, OffsetTableStart, OffsetTableEnd-OffsetTableStart)
-	if err != nil {
-		return nil, err
-	}
-	tables.soundOffsets = offs
-
-	lengths, err := parseTable[uint16](r, LengthTableStart, LengthTableEnd-LengthTableStart)
-	if err != nil {
-		return nil, err
-	}
-	tables.soundLengths = lengths
-
-	freqs, err := parseTable[uint16](r, FreqTableStart, FreqTableEnd-FreqTableStart)
-	if err != nil {
-		return nil, err
-	}
-	tables.soundFrequencies = freqs
-
-	return tables, nil
-}
-
-// table is a single data table in the file-format
-type table[T uint32 | uint16] struct {
-	data []byte
-	r    io.ReadSeeker
-}
-
-// parseTable reads len bytes at offset and parses them to a table[T]
-func parseTable[T uint32 | uint16](r io.ReadSeeker, offset uint32, len uint16) (*table[T], error) {
-	ofr, err := read(r, offset, len)
-	if err != nil {
+// ReadPCM reads the raw 8-bit unigned PCM-Data associated with a given sound
+func ReadPCM(s SoundInfo, vcl *File) ([]byte, error) {
+	if _, err := vcl.r.Seek(int64(s.Offset), io.SeekStart); err != nil {
 		return nil, err
 	}
 
-	tbl := &table[T]{
-		data: ofr,
-	}
-	tbl.r = bytes.NewReader(tbl.data)
+	buf := make([]byte, s.Len)
 
-	return tbl, nil
-}
-
-func (tb *table[T]) Next() (T, error) {
-	var x T = 0
-	err := binary.Read(tb.r, binary.LittleEndian, &x)
-	return x, err
-}
-
-// All seeks to the beginning and parses all values from the table
-func (tb *table[T]) All() ([]T, error) {
-	_, err := tb.r.Seek(0, 0)
-	if err != nil {
+	if err := binary.Read(vcl.r, binary.LittleEndian, &buf); err != nil {
 		return nil, err
 	}
 
-	res := make([]T, 0)
-
-	for {
-		var v T = 0
-		if err = binary.Read(tb.r, binary.LittleEndian, &v); err != nil {
-			if err == io.EOF {
-				return res, nil
-			}
-		}
-
-		res = append(res, v)
-	}
-}
-
-// read seeks to offset and reads len
-func read(r io.ReadSeeker, offset uint32, len uint16) ([]byte, error) {
-	var data = make([]byte, len)
-	var err error
-
-	if _, err = r.Seek(int64(offset), 0); err != nil {
-		return nil, err
-	}
-	if _, err = r.Read(data); err != nil {
-		return nil, err
-	}
-
-	return data, nil
+	return buf, nil
 }
