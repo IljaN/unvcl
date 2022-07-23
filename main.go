@@ -43,23 +43,6 @@ func main() {
 	}
 }
 
-func pathExists(path string) (bool, error) {
-	_, err := os.Stat(path)
-	if err == nil {
-		return true, nil
-	}
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return false, err
-}
-
-func fileNameWithoutExt(fn string) string {
-	fn = filepath.Base(fn)
-	ext := filepath.Ext(fn)
-	return fn[0 : len(fn)-len(ext)]
-}
-
 func readArgsOrDie() (vclPath, extractPath string) {
 	if len(os.Args) < 3 {
 		fmt.Println("usage: unvcl vcl_file out_path")
@@ -76,4 +59,21 @@ func readArgsOrDie() (vclPath, extractPath string) {
 	}
 
 	return vclPath, extractPath
+}
+
+func pathExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
+}
+
+func fileNameWithoutExt(fn string) string {
+	fn = filepath.Base(fn)
+	ext := filepath.Ext(fn)
+	return fn[0 : len(fn)-len(ext)]
 }
