@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 )
 
+var Version string
+
 func main() {
 	vclPath, extractPath := readArgsOrDie()
 
@@ -48,7 +50,13 @@ func main() {
 
 func readArgsOrDie() (vclPath, extractPath string) {
 	if len(os.Args) < 3 {
-		fmt.Println("usage: unvcl vcl_file out_path")
+		fmt.Println("Usage: unvcl vcl_file out_path")
+		fmt.Println("Extracts audio-files from a vcl-file")
+		fmt.Println("\t vcl_file\tSource file from which to extract")
+		fmt.Println("\t out_path\tTarget directory where audio-files should saved")
+		fmt.Println("")
+		fmt.Println("Version: " + Version)
+
 		os.Exit(0)
 	}
 
